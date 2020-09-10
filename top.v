@@ -111,7 +111,7 @@ module top (
 
           dir <= word_data_received[0];
           // Next we send prior ticks
-          word_send_data[63:0] <= tickaccum_last[63:0]; // Prep to send steps
+          //word_send_data[63:0] <= tickdowncount_last[63:0]; // Prep to send steps
         end
 
         // 0x03 - Clock divisor (24 bit)
@@ -180,8 +180,7 @@ module top (
   reg [63:0] move_duration = 64'h0000000004fffff;
   reg [23:0] clock_divisor = 40;  // should be 40 for 400 khz at 16Mhz Clk
 
-  reg [63:0] tickaccum = 0;  // move accumulator (clock cycles)
-  reg [63:0] tickaccum_last = 0;  // move accumulator (clock cycles)
+  reg [63:0] tickdowncount = 64'h0000000004fffff;  // move down count (clock cycles)
   reg [23:0] clkaccum = 0;  // intra-tick accumulator
 
   reg signed [63:0] substep_accumulator = 0; // typemax(Int64) - 100 for buffer
@@ -194,11 +193,17 @@ module top (
   wire PIN_21 = step;
 
   always @(posedge CLK) begin
-    if ((stepping ^ steplast) && tickaccum < move_duration) begin
+
+   if (tickdowncount == 0) begin
+     steplast = stepping;
+   end
+
+    if ((stepping ^ steplast) && tickdowncount > 0) begin
         clkaccum = clkaccum + 1;
         if (clkaccum[23:0] == clock_divisor[23:0]) begin
 
-            increment_r = (tickaccum == 0) ? increment : increment_r + incrementincrement;
+            //TODO Remove invement_r?
+            increment_r = (tickdowncount == move_duration) ? increment : increment_r + incrementincrement;
             substep_accumulator = substep_accumulator + increment_r;
             // TODO need to set residency on the signal
             if (substep_accumulator > 0) begin
@@ -212,13 +217,11 @@ module top (
 
             // Increment tick accumulators
             clkaccum = 0;
-            tickaccum = tickaccum + 1;
-            tickaccum_last = tickaccum;
+            tickdowncount = tickdowncount - 1'b1;
             encoder_count_last = encoder_count;
         end
     end else begin
-        tickaccum = 0;
-        steplast = stepping;
+        tickdowncount = move_duration;
         steps_taken = 0;
         clkaccum = 0;
     end
