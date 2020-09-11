@@ -114,7 +114,7 @@ module top (
           dir <= word_data_received[0];
 
           // Grab the current move index incase and write to the next one
-          writemoveind <= moveind;
+          writemoveind <= moveind + 1'b1;
 
           // Next we send prior ticks
           //word_send_data[63:0] <= tickdowncount_last[63:0]; // Prep to send steps
@@ -203,8 +203,9 @@ module top (
 
   always @(posedge CLK) begin
 
-   if (tickdowncount == 0 && stepfinished[moveind] != stepready[moveind]) begin
+   if (tickdowncount == 0) begin
      stepfinished[moveind] = stepready[moveind];
+     moveind = moveind + 1'b1;
    end
 
     if ((stepfinished[moveind] ^ stepready[moveind]) && tickdowncount > 0) begin
