@@ -156,7 +156,7 @@ module top (
                 incrementincrement[63:0] = word_data_received[63:0];
                 message_word_count = 0;
                 awaiting_more_words = 0;
-                stepping = ~stepping;
+                stepready = ~stepready;
                 PIN_22 = ~PIN_22;
             end
           endcase
@@ -174,31 +174,31 @@ module top (
 
   // coordinated move execution
   // Latching mechanism for engaging the move. This is currently unbuffered, so TODO
-  reg stepping = 1;
-  reg steplast = 0;
+  reg stepready;
+  reg stepfinished;
 
-  reg [63:0] move_duration = 64'h0000000004fffff;
+  reg [63:0] move_duration;
   reg [23:0] clock_divisor = 40;  // should be 40 for 400 khz at 16Mhz Clk
 
-  reg [63:0] tickdowncount = 64'h0000000004fffff;  // move down count (clock cycles)
+  reg [63:0] tickdowncount;  // move down count (clock cycles)
   reg [23:0] clkaccum = 0;  // intra-tick accumulator
 
   reg signed [63:0] substep_accumulator = 0; // typemax(Int64) - 100 for buffer
   reg [63:0] steps_taken = 0;
   reg [63:0] last_steps_taken = 0;
   reg signed [63:0] increment_r;
-  reg signed [63:0] increment = 100000000000;
-  reg signed [63:0] incrementincrement = 1000000000;
+  reg signed [63:0] increment;
+  reg signed [63:0] incrementincrement;
 
   wire PIN_21 = step;
 
   always @(posedge CLK) begin
 
    if (tickdowncount == 0) begin
-     steplast = stepping;
+     stepfinished = stepready;
    end
 
-    if ((stepping ^ steplast) && tickdowncount > 0) begin
+    if ((stepfinished ^ stepready) && tickdowncount > 0) begin
         clkaccum = clkaccum + 1;
         if (clkaccum[23:0] == clock_divisor[23:0]) begin
 
