@@ -88,6 +88,8 @@ module top (
   reg awaiting_more_words = 0;
   reg [7:0] message_word_count = 0;
   reg [7:0] message_header;
+  reg [`MOVE_BUFFER_BITS:0] writemoveind;
+
   always @(posedge word_received) begin
     LED <= !LED;
 
@@ -110,6 +112,10 @@ module top (
           awaiting_more_words <= 1;
 
           dir <= word_data_received[0];
+
+          // Grab the current move index incase and write to the next one
+          writemoveind <= moveind;
+
           // Next we send prior ticks
           //word_send_data[63:0] <= tickdowncount_last[63:0]; // Prep to send steps
         end
@@ -145,18 +151,18 @@ module top (
           // the first non-header word is the move duration
           case (message_word_count)
             1: begin
-              move_duration[0][63:0] = word_data_received[63:0];
+              move_duration[writemoveind][63:0] = word_data_received[63:0];
               //word_send_data[63:0] = last_steps_taken[63:0]; // Prep to send steps
             end
             2: begin
-              increment[0][63:0] = word_data_received[63:0];
+              increment[writemoveind][63:0] = word_data_received[63:0];
               word_send_data[63:0] = encoder_count_last[63:0]; // Prep to send encoder read
             end
             3: begin
-                incrementincrement[0][63:0] = word_data_received[63:0];
+                incrementincrement[writemoveind][63:0] = word_data_received[63:0];
                 message_word_count = 0;
                 awaiting_more_words = 0;
-                stepready[0] = ~stepready[0];
+                stepready[writemoveind] = ~stepready[writemoveind];
                 PIN_22 = ~PIN_22;
             end
           endcase
@@ -173,6 +179,9 @@ module top (
   //
 
   // coordinated move execution
+
+  reg [`MOVE_BUFFER_BITS:0] moveind = 0; // Move index cursor
+
   // Latching mechanism for engaging the move. This is currently unbuffered, so TODO
   reg stepready [`MOVE_BUFFER_BITS:0];
   reg stepfinished [`MOVE_BUFFER_BITS:0];
@@ -194,25 +203,23 @@ module top (
 
   always @(posedge CLK) begin
 
-   if (tickdowncount == 0) begin
-     stepfinished[0] = stepready[0];
+   if (tickdowncount == 0 && stepfinished[moveind] != stepready[moveind]) begin
+     stepfinished[moveind] = stepready[moveind];
    end
 
-    if ((stepfinished[0] ^ stepready[0]) && tickdowncount > 0) begin
+    if ((stepfinished[moveind] ^ stepready[moveind]) && tickdowncount > 0) begin
         clkaccum = clkaccum + 1;
         if (clkaccum[23:0] == clock_divisor[23:0]) begin
 
             //TODO Remove invement_r?
-            increment_r = (tickdowncount == move_duration[0]) ? increment[0] : increment_r + incrementincrement[0];
+            increment_r = (tickdowncount == move_duration[moveind]) ? increment[moveind] : increment_r + incrementincrement[moveind];
             substep_accumulator = substep_accumulator + increment_r;
             // TODO need to set residency on the signal
             if (substep_accumulator > 0) begin
                 step = 1;
-                //steps_taken = steps_taken + 1;
-                //last_steps_taken = steps_taken;
                 substep_accumulator = substep_accumulator - 64'h7fffffffffffff9b;
             end else begin
-                 step = 0;
+                step = 0;
             end
 
             // Increment tick accumulators
@@ -221,7 +228,7 @@ module top (
             encoder_count_last = encoder_count;
         end
     end else begin
-        tickdowncount = move_duration[0];
+        tickdowncount = move_duration[moveind];
         //steps_taken = 0;
         clkaccum = 0;
     end
