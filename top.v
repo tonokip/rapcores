@@ -196,13 +196,18 @@ module top (
   reg signed [63:0] increment [`MOVE_BUFFER_BITS:0];
   reg signed [63:0] incrementincrement [`MOVE_BUFFER_BITS:0];
 
+  reg finishedmove = 1;
+
   always @(posedge CLK) begin
 
-    if (tickdowncount == 0) begin
+    // Load up the move duration
+    if (finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
       tickdowncount = move_duration[moveind];
+      finishedmove = 0;
     end
 
-    if(stepfinished[moveind] ^ stepready[moveind]) begin
+    // check if this move has been done before
+    if(!finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
 
       clkaccum = clkaccum + 1;
       if (clkaccum[23:0] == clock_divisor[23:0]) begin
@@ -227,6 +232,7 @@ module top (
         if(tickdowncount == 0) begin
           moveind = moveind + 1'b1;
           stepfinished[moveind] = stepready[moveind];
+          finishedmove = 1;
         end
       end
     end
