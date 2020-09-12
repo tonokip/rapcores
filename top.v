@@ -88,7 +88,7 @@ module top (
   reg awaiting_more_words = 0;
   reg [7:0] message_word_count = 0;
   reg [7:0] message_header;
-  reg [`MOVE_BUFFER_BITS:0] writemoveind;
+  reg [`MOVE_BUFFER_BITS:0] writemoveind = 0;
   reg startedmoves = 0;
 
   always @(posedge word_received) begin
@@ -114,13 +114,6 @@ module top (
 
           dir <= word_data_received[0];
 
-          // Grab the current move index incase and write to the next one
-          if (!startedmoves) begin
-            writemoveind <= 0;
-            startedmoves <= 1;
-          end else begin
-            writemoveind <= moveind + 1'b1;
-          end
           // Next we send prior ticks
           //word_send_data[63:0] <= tickdowncount_last[63:0]; // Prep to send steps
         end
@@ -168,6 +161,7 @@ module top (
                 message_word_count = 0;
                 awaiting_more_words = 0;
                 stepready[writemoveind] = ~stepready[writemoveind];
+                writemoveind = writemoveind + 1'b1;
                 PIN_22 = ~PIN_22;
             end
           endcase
@@ -204,37 +198,37 @@ module top (
 
   always @(posedge CLK) begin
 
-    if(stepfinished[moveind] ^ stepready[moveind]) begin
-      if (tickdowncount == 0) begin
-        stepfinished[moveind] = stepready[moveind];
-        moveind = moveind + 1'b1;
-      end
-
-      if (tickdowncount > 0) begin
-          clkaccum = clkaccum + 1;
-          if (clkaccum[23:0] == clock_divisor[23:0]) begin
-
-              //TODO Remove invement_r?
-              increment_r = (tickdowncount == move_duration[moveind]) ? increment[moveind] : increment_r + incrementincrement[moveind];
-              substep_accumulator = substep_accumulator + increment_r;
-              // TODO need to set residency on the signal
-              if (substep_accumulator > 0) begin
-                  step = 1;
-                  substep_accumulator = substep_accumulator - 64'h7fffffffffffff9b;
-              end else begin
-                  step = 0;
-              end
-
-              // Increment tick accumulators
-              clkaccum = 0;
-              tickdowncount = tickdowncount - 1'b1;
-              encoder_count_last = encoder_count;
-          end
-        end else begin
-          clkaccum = 0;
-        end
-    end else begin
+    if (tickdowncount == 0) begin
       tickdowncount = move_duration[moveind];
+    end
+
+    if(stepfinished[moveind] ^ stepready[moveind]) begin
+
+      clkaccum = clkaccum + 1;
+      if (clkaccum[23:0] == clock_divisor[23:0]) begin
+
+        //TODO Remove invement_r?
+        increment_r = (tickdowncount == move_duration[moveind]) ? increment[moveind] : increment_r + incrementincrement[moveind];
+        substep_accumulator = substep_accumulator + increment_r;
+        // TODO need to set residency on the signal
+        if (substep_accumulator > 0) begin
+          step = 1;
+          substep_accumulator = substep_accumulator - 64'h7fffffffffffff9b;
+        end else begin
+          step = 0;
+        end
+
+        // Increment tick accumulators
+        clkaccum = 0;
+        tickdowncount = tickdowncount - 1'b1;
+        encoder_count_last = encoder_count;
+
+        // See if we finished the segment and incrment the buffer
+        if(tickdowncount == 0) begin
+          moveind = moveind + 1'b1;
+          stepfinished[moveind] = stepready[moveind];
+        end
+      end
     end
   end
 endmodule
