@@ -198,19 +198,14 @@ module top (
   reg [23:0] clkaccum = 0;  // intra-tick accumulator
 
   reg signed [63:0] substep_accumulator = 0; // typemax(Int64) - 100 for buffer
-  //reg [63:0] steps_taken = 0;
-  //reg [63:0] last_steps_taken = 0;
   reg signed [63:0] increment_r;
   reg signed [63:0] increment [`MOVE_BUFFER_BITS:0];
   reg signed [63:0] incrementincrement [`MOVE_BUFFER_BITS:0];
-
-  wire PIN_21 = step;
 
   always @(posedge CLK) begin
 
     if(stepfinished[moveind] ^ stepready[moveind]) begin
       if (tickdowncount == 0) begin
-        tickdowncount = move_duration[moveind];
         stepfinished[moveind] = stepready[moveind];
         moveind = moveind + 1'b1;
       end
@@ -238,6 +233,8 @@ module top (
         end else begin
           clkaccum = 0;
         end
-      end
+    end else begin
+      tickdowncount = move_duration[moveind];
+    end
   end
 endmodule
