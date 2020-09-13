@@ -230,8 +230,8 @@ module top (
 
         // See if we finished the segment and incrment the buffer
         if(tickdowncount == 0) begin
-          moveind = moveind + 1'b1;
           stepfinished[moveind] = stepready[moveind];
+          moveind = moveind + 1'b1;
           finishedmove = 1;
         end
       end
