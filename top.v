@@ -111,7 +111,7 @@ module top (
           // TODO get direction bits here
           awaiting_more_words <= 1;
 
-          dir <= word_data_received[0];
+          dir_r[writemoveind] <= word_data_received[0];
 
           // Next we send prior ticks
           //word_send_data[63:0] <= tickdowncount_last[63:0]; // Prep to send steps
@@ -186,6 +186,7 @@ module top (
 
   reg [63:0] move_duration [`MOVE_BUFFER_BITS:0];
   reg [23:0] clock_divisor = 40;  // should be 40 for 400 khz at 16Mhz Clk
+  reg dir_r [`MOVE_BUFFER_BITS:0];
 
   reg [63:0] tickdowncount;  // move down count (clock cycles)
   reg [23:0] clkaccum = 0;  // intra-tick accumulator
@@ -205,20 +206,13 @@ module top (
       finishedmove = 0;
     end
 
-    // See if we finished the segment and incrment the buffer
-    if(tickdowncount == 0) begin
-      stepfinished[moveind] = stepready[moveind];
-      moveind = moveind + 1'b1;
-      finishedmove = 1;
-    end
-
     // check if this move has been done before
     if(!finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
 
       // DDA clock divisor
       clkaccum = clkaccum + 1;
       if (clkaccum[23:0] == clock_divisor[23:0]) begin
-
+        dir = dir_r[moveind]; // set direction
         // TODO For N axes
         increment_r = (tickdowncount == move_duration[moveind]) ? increment[moveind] : increment_r + incrementincrement[moveind];
         substep_accumulator = substep_accumulator + increment_r;
@@ -234,6 +228,12 @@ module top (
         clkaccum = 0;
         tickdowncount = tickdowncount - 1'b1;
         encoder_count_last = encoder_count;
+        // See if we finished the segment and incrment the buffer
+        if(tickdowncount == 0) begin
+          stepfinished[moveind] = stepready[moveind];
+          moveind = moveind + 1'b1;
+          finishedmove = 1;
+        end
       end
     end
   end
