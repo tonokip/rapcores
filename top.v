@@ -89,7 +89,6 @@ module top (
   reg [7:0] message_word_count = 0;
   reg [7:0] message_header;
   reg [`MOVE_BUFFER_BITS:0] writemoveind = 0;
-  reg startedmoves = 0;
 
   always @(posedge word_received) begin
     LED <= !LED;
@@ -196,7 +195,7 @@ module top (
   reg signed [63:0] increment [`MOVE_BUFFER_BITS:0];
   reg signed [63:0] incrementincrement [`MOVE_BUFFER_BITS:0];
 
-  reg finishedmove = 1;
+  reg finishedmove = 1; // flag inidicating a move has been finished, so load next
 
   always @(posedge CLK) begin
 
@@ -206,13 +205,21 @@ module top (
       finishedmove = 0;
     end
 
+    // See if we finished the segment and incrment the buffer
+    if(tickdowncount == 0) begin
+      stepfinished[moveind] = stepready[moveind];
+      moveind = moveind + 1'b1;
+      finishedmove = 1;
+    end
+
     // check if this move has been done before
     if(!finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
 
+      // DDA clock divisor
       clkaccum = clkaccum + 1;
       if (clkaccum[23:0] == clock_divisor[23:0]) begin
 
-        //TODO Remove invement_r?
+        // TODO For N axes
         increment_r = (tickdowncount == move_duration[moveind]) ? increment[moveind] : increment_r + incrementincrement[moveind];
         substep_accumulator = substep_accumulator + increment_r;
         // TODO need to set residency on the signal
@@ -227,13 +234,6 @@ module top (
         clkaccum = 0;
         tickdowncount = tickdowncount - 1'b1;
         encoder_count_last = encoder_count;
-
-        // See if we finished the segment and incrment the buffer
-        if(tickdowncount == 0) begin
-          stepfinished[moveind] = stepready[moveind];
-          moveind = moveind + 1'b1;
-          finishedmove = 1;
-        end
       end
     end
   end
