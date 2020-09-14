@@ -162,6 +162,9 @@ module top (
                 stepready[writemoveind] = ~stepready[writemoveind];
                 writemoveind = writemoveind + 1'b1;
                 PIN_22 = ~PIN_22;
+                `ifdef FORMAL
+                  assert(writemoveind <= `MOVE_BUFFER_SIZE)
+                `endif
             end
           endcase
         end
@@ -181,33 +184,33 @@ module top (
   reg [`MOVE_BUFFER_BITS:0] moveind = 0; // Move index cursor
 
   // Latching mechanism for engaging the move. This is currently unbuffered, so TODO
-  reg stepready [`MOVE_BUFFER_BITS:0];
-  reg stepfinished [`MOVE_BUFFER_BITS:0];
+  reg stepready [`MOVE_BUFFER_SIZE:0];
+  reg stepfinished [`MOVE_BUFFER_SIZE:0];
 
-  reg [63:0] move_duration [`MOVE_BUFFER_BITS:0];
+  reg [63:0] move_duration [`MOVE_BUFFER_SIZE:0];
   reg [23:0] clock_divisor = 40;  // should be 40 for 400 khz at 16Mhz Clk
-  reg dir_r [`MOVE_BUFFER_BITS:0];
+  reg dir_r [`MOVE_BUFFER_SIZE:0];
 
   reg [63:0] tickdowncount;  // move down count (clock cycles)
   reg [23:0] clkaccum = 0;  // intra-tick accumulator
 
   reg signed [63:0] substep_accumulator = 0; // typemax(Int64) - 100 for buffer
   reg signed [63:0] increment_r;
-  reg signed [63:0] increment [`MOVE_BUFFER_BITS:0];
-  reg signed [63:0] incrementincrement [`MOVE_BUFFER_BITS:0];
+  reg signed [63:0] increment [`MOVE_BUFFER_SIZE:0];
+  reg signed [63:0] incrementincrement [`MOVE_BUFFER_SIZE:0];
 
   reg finishedmove = 1; // flag inidicating a move has been finished, so load next
 
   always @(posedge CLK) begin
 
     // Load up the move duration
-    if (finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
+    if (finishedmove & (stepfinished[moveind] ^ stepready[moveind])) begin
       tickdowncount = move_duration[moveind];
       finishedmove = 0;
     end
 
     // check if this move has been done before
-    if(!finishedmove && (stepfinished[moveind] ^ stepready[moveind])) begin
+    if(!finishedmove & (stepfinished[moveind] ^ stepready[moveind])) begin
 
       // DDA clock divisor
       clkaccum = clkaccum + 1;
