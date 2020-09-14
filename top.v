@@ -163,7 +163,7 @@ module top (
                 writemoveind = writemoveind + 1'b1;
                 PIN_22 = ~PIN_22;
                 `ifdef FORMAL
-                  assert(writemoveind <= `MOVE_BUFFER_SIZE)
+                  assert(writemoveind <= `MOVE_BUFFER_SIZE);
                 `endif
             end
           endcase
