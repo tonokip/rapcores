@@ -65,6 +65,7 @@ module top (
                 .dir (dir),
                 .microsteps (microsteps));
 
+
   //
   // Encoder
   //
@@ -236,6 +237,9 @@ module top (
           stepfinished[moveind] = stepready[moveind];
           moveind = moveind + 1'b1;
           finishedmove = 1;
+          `ifdef FORMAL
+            assert(moveind <= `MOVE_BUFFER_SIZE);
+          `endif
         end
       end
     end
