@@ -1,5 +1,7 @@
 `default_nettype none
 
+`include "stepper_vref.v"
+
 module DualHBridge (
     output       phase_a1,  // Phase A
     output       phase_a2,  // Phase A
