@@ -88,10 +88,13 @@ module top (
   // Stepper Setup
   // TODO: Generate statement?
   reg [2:0] microsteps = 2;
+  reg [3:0] stepper_current = 4;
   wire step;
   wire dir;
   reg enable;
-  DualHBridge s0 (.phase_a1 (PHASE_A1[1]),
+  DualHBridge s0 (
+                .clk (CLK),
+                .phase_a1 (PHASE_A1[1]),
                 .phase_a2 (PHASE_A2[1]),
                 .phase_b1 (PHASE_B1[1]),
                 .phase_b2 (PHASE_B2[1]),
@@ -100,7 +103,8 @@ module top (
                 .step (step),
                 .dir (dir),
                 .enable (enable),
-                .microsteps (microsteps));
+                .microsteps (microsteps),
+                .current (stepper_current));
 
 
   //
